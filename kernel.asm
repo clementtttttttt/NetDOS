@@ -113,19 +113,32 @@ internal_shell:
     cli
     .command_prep:
         xor bx,bx
-        mov bx,commandstr
+            mov di,commandstr
     .command:
-        mov bx,keyboard_buffer
-        cmp byte [bx],0
+        cmp byte [keyboard_buffer],0
         je .skip
+        cmp byte [keyboard_buffer],0x08
+        jne .backskip
+            mov si,backspace
+            call print_string
+            mov byte [di],0
+            dec di
+            jmp .skip
+        .backskip:
+        mov al,[keyboard_buffer]
+        mov ah,0x0e
+        int 10h
+        mov [di],al
+        inc di
+        .skip:
+        mov byte [keyboard_buffer],0
         sti
         hlt
         cli
-        .skip:
         jmp .command
-        
+  
 data:
-    backspace db '',0
+    backspace db 0x8,0x20,0x8,0
     currentaddr dw 0
     intershell db "NetDOS internal SH version 1.0",10,13,0
     bps dw 512
@@ -138,7 +151,7 @@ data:
     datasector dw 0
     unrealmodeok db "Unreal Mode Initialized.",10,13,0
     syscallok db "System call and IRQ1 is initialized.",10,13,0
-    commandline db "/$",0
+    commandline db "/$ ",0
     gdtinfo:
             dw gdt_end - gdt - 1   ;last byte in table
             dd gdt                 ;start of table
@@ -158,7 +171,6 @@ data:
         eaxx dd 0
         db 13,10,0
     manfacstr db "CPU model is:",0
-    commandstr times 100 db 0
 end_of_data:
 
 strcmp:
@@ -175,6 +187,8 @@ dasm:
     %include "include/disk.asm"
 end_of_dasm:
 nop
+    commandstr times 100 db 0
+
 fat:
     times 8 db 3
     
