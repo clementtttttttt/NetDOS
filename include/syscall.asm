@@ -17,12 +17,18 @@ inthandler:
         popa
         iret
     next3:
+        cmp ah,3
+        jne next4
         mov ax,3
         int 10h
         popa
         iret
+    next4:
+        popa
+        mov si,KernelVER
+        iret
 executable_loader:
-    mov ebx,0x36310c
+    mov ebx,0x36310
     mov word ax,[ebx]
     cmp ax,4e44h
     je .load_nde_exec
@@ -33,6 +39,6 @@ executable_loader:
         iret
 syscall_data:
 
-
+KernelVER db "KERNEL 1.0",10,13,0
 
 end_of_syscall_data:

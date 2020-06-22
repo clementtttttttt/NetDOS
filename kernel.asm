@@ -82,12 +82,16 @@ findinit:
    stc
     jc internal_shell
 load_init:
-    
+    stc
+    jc init_fatal_error
 
 halt:
     hlt
     jmp halt
-
+init_fatal_error:
+    mov si,fatal_error
+    call print_string
+    jmp halt
 print_string:				; Output string in SI to screen
 	pusha
     mov ah,0x0e
@@ -104,21 +108,31 @@ print_string:				; Output string in SI to screen
 	ret
 
 internal_shell:
-    mov ah,6
-    int 40h
+
     mov si,intershell
     call print_string
-    mov si,commandline
+     mov ah,4
+    int 40h
     call print_string
-    cli
     .command_prep:
+        mov si,commandline
+        call print_string
+   
+        cli
+    
         xor bx,bx
             mov di,commandstr
+        mov byte [di],0
+        mov byte [keyboard_buffer],0
     .command:
         cmp byte [keyboard_buffer],0
         je .skip
+        cmp byte [keyboard_buffer],10
+        je .execute_command
         cmp byte [keyboard_buffer],0x08
         jne .backskip
+            cmp di,commandstr
+            je .skip
             mov si,backspace
             call print_string
             mov byte [di],0
@@ -136,11 +150,21 @@ internal_shell:
         hlt
         cli
         jmp .command
-  
+    .execute_command:
+        cmp byte [commandstr],0
+        je .command_prep
+        jmp .command_not_found
+        
+    .command_not_found:
+        mov si,command_not_found
+        call print_string 
+        jmp .command_prep
 data:
     backspace db 0x8,0x20,0x8,0
     currentaddr dw 0
-    intershell db "NetDOS internal SH version 1.0",10,13,0
+    fatal_error db "FATAL ERROR: INIT IS CORRUPTED",10,13,0
+    command_not_found db 10,13,"Invalid command,view a list of commands by typing help (CASE SENSITIVE!!!)",10,13,0
+    intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt in his the of 13,with ",0
     bps dw 512
     nof db 2
     rst dw 1
@@ -151,7 +175,7 @@ data:
     datasector dw 0
     unrealmodeok db "Unreal Mode Initialized.",10,13,0
     syscallok db "System call and IRQ1 is initialized.",10,13,0
-    commandline db "/$ ",0
+    commandline db 10,13,"A:/$ ",0
     gdtinfo:
             dw gdt_end - gdt - 1   ;last byte in table
             dd gdt                 ;start of table
@@ -174,7 +198,9 @@ data:
 end_of_data:
 
 strcmp:
-    
+    .loop:
+        repe cmpsb
+        
 sasm:
     %include "include/syscall.asm"
 end_of_sasm:
