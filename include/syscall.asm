@@ -24,8 +24,9 @@ inthandler:
         popa
         iret
     next4:
+        mov ax,KernelVER
+        mov fs,ax
         popa
-        mov si,KernelVER
         iret
 executable_loader:
     mov ebx,0x36310

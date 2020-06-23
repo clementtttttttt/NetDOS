@@ -9,7 +9,6 @@ clear_screen:
 
     mov si,init
     call print_string
-
     cli
 
 unreal_mode:
@@ -43,7 +42,23 @@ setup_system_call:
     call print_string
     mov si,manfacstr
     call print_string
-    mov eax,80000002h
+check_cpuid_exist:
+    pushfd
+    pushfd
+    xor dword [esp],0x00200000
+    popfd
+    pushfd 
+    pop eax
+    xor eax,[esp]
+    popfd
+    and eax,0x00200000
+    cmp eax,0
+    jne OK
+    mov si,cpuidunsupportedstr
+    call print_string
+    jmp read_fat
+OK:
+mov eax,80000002h
 getcpuinfo:
     push eax
     cpuid
@@ -108,6 +123,10 @@ findinit:
     mov si,initprog
     mov di,fat+2600h
     call FindName
+load_ring3:
+  
+
+        
     jc internal_shell
 load_init:
     stc
@@ -140,6 +159,7 @@ internal_shell:
     call print_string
      mov ah,4
     int 40h
+    mov si,fs
     call print_string
     .command_prep:
         mov si,commandline
@@ -183,6 +203,11 @@ internal_shell:
         mov di,help
         rep cmpsb
         je hhelp
+        mov si,commandstr
+        mov di,ls
+        mov cx,3
+        rep cmpsb
+        je lsc
         jmp .command_not_found
         
     .command_not_found:
@@ -200,8 +225,10 @@ return:
     ret
 
 data:
-    cat db "cat",0
+    ls db "ls",0
+    clear db "clear",0
     helpstr db "ls=list directory",10,13,"program-name=execute program",10,13,0
+    cpuidunsupportedstr db "CPU IS BEFORE i486-DX2,CONSIDER BUYING A NEW COMPUTER",10,13,0
     help db "help",0
     backspace db 0x8,0x20,0x8,0
     currentaddr dw 0
@@ -227,22 +254,7 @@ data:
  
     gdt         dd 0,0        ; entry 0 is always unused
     flatdesc    db 0xff, 0xff, 0, 0, 0, 10011010b, 11001011b, 0
-    ring3_code  dw 0xffff
-        .limit dw 0xffff
-        .base_low dw 0 
-                  db 0
-        .bitfield db 0b01011111,0b11111011
-        .base_high db 0
-    
-    ring3_data  dw 0xffff
-        .limit dw 0xffff
-        .base_low dw 0 
-                  db 0
-        .bitfield db 0b01001111,0b11111011
-        .base_high db 0
-
-                
-    
+ 
     gdt_end:
         times 10 nop
     keyboard_buffer:   
