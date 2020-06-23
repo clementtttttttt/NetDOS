@@ -41,10 +41,11 @@ setup_system_call:
 
     mov si,syscallok
     call print_string
-getcpuinfo:
     mov si,manfacstr
     call print_string
     mov eax,80000002h
+getcpuinfo:
+    push eax
     cpuid
     push edx
     push ecx
@@ -61,6 +62,12 @@ getcpuinfo:
     xor si,si
     mov si,cpustr
     call print_string
+    pop eax
+    add eax,1
+    cmp eax,80000002h+2
+    jle getcpuinfo
+    mov si,lfcr
+    call print_string
 read_fat:
     mov ax,0x0212
     mov dl,0
@@ -71,27 +78,46 @@ read_fat:
     pop es
     mov bx,fat
     int 13h
-    mov ax,0x0212
+    mov ax,0x0204
     mov dl,0
     mov dh,1
     mov ch,0
     mov cl,1
     mov bx,fat+18*512
     int 13h
+clean_fat:
+    mov si,fat+2600h
+    .loop:
+        cmp byte [si],0xe5
+        jne .skip
+        .loop2:
+            push si
+            mov byte [si],0
+            inc si
+            pop ax
+            add ax,32
+            cmp si,ax
+            jg .return
+            jmp .loop2
+        .skip:
+        inc si
+        .return:
+        cmp si,fat+2600h+(224*32)
+        jg .loop
 findinit:
-   stc
+    mov si,initprog
+    mov di,fat+2600h
+    call FindName
     jc internal_shell
 load_init:
     stc
-    jc init_fatal_error
-
+cli
+    mov si,fatal_error
+    call print_string
 halt:
     hlt
     jmp halt
-init_fatal_error:
-    mov si,fatal_error
-    call print_string
-    jmp halt
+
 print_string:				; Output string in SI to screen
 	pusha
     mov ah,0x0e
@@ -107,6 +133,7 @@ print_string:				; Output string in SI to screen
 	popa 
 	ret
 
+
 internal_shell:
 
     mov si,intershell
@@ -118,11 +145,10 @@ internal_shell:
         mov si,commandline
         call print_string
    
-        cli
     
         xor bx,bx
             mov di,commandstr
-        mov byte [di],0
+        call .clearcommandstr
         mov byte [keyboard_buffer],0
     .command:
         cmp byte [keyboard_buffer],0
@@ -137,6 +163,7 @@ internal_shell:
             call print_string
             mov byte [di],0
             dec di
+            mov byte [di],0
             jmp .skip
         .backskip:
         mov al,[keyboard_buffer]
@@ -146,30 +173,48 @@ internal_shell:
         inc di
         .skip:
         mov byte [keyboard_buffer],0
-        sti
         hlt
-        cli
         jmp .command
     .execute_command:
         cmp byte [commandstr],0
         je .command_prep
+        mov cx,5
+        mov si,commandstr
+        mov di,help
+        rep cmpsb
+        je hhelp
         jmp .command_not_found
         
     .command_not_found:
         mov si,command_not_found
         call print_string 
         jmp .command_prep
+    .clearcommandstr:
+        cmp di,commandstr+100
+        je return
+        mov byte [di],0
+        inc di
+        jmp .clearcommandstr
+return:
+    mov di,commandstr
+    ret
+
 data:
+    cat db "cat",0
+    helpstr db "ls=list directory",10,13,"program-name=execute program",10,13,0
+    help db "help",0
     backspace db 0x8,0x20,0x8,0
     currentaddr dw 0
-    fatal_error db "FATAL ERROR: INIT IS CORRUPTED",10,13,0
+    temp dd 0
+    lfcr db 10,13,0
+    fatal_error db "KERNEL PANIC: INIT RETURNED (Which is not supposed to)",10,13,0
     command_not_found db 10,13,"Invalid command,view a list of commands by typing help (CASE SENSITIVE!!!)",10,13,0
-    intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt in his the of 13,with ",0
+    intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt in the age of 13,with ",0
     bps dw 512
     nof db 2
     rst dw 1
     sfi db "Searching for the INIT program...",10,13,0
-    initprog     db      "INIT    COM"   ; name and extension each must be
+    initprog     db      "INIT    ndf"   ; name and extension each must be
     CRLF db 10,13,0
 	init db "Starting NetDos...",10,13,0
     datasector dw 0
@@ -181,7 +226,23 @@ data:
             dd gdt                 ;start of table
  
     gdt         dd 0,0        ; entry 0 is always unused
-    flatdesc    db 0xff, 0xff, 0, 0, 0, 10010010b, 11001111b, 0
+    flatdesc    db 0xff, 0xff, 0, 0, 0, 10011010b, 11001011b, 0
+    ring3_code  dw 0xffff
+        .limit dw 0xffff
+        .base_low dw 0 
+                  db 0
+        .bitfield db 0b01011111,0b11111011
+        .base_high db 0
+    
+    ring3_data  dw 0xffff
+        .limit dw 0xffff
+        .base_low dw 0 
+                  db 0
+        .bitfield db 0b01001111,0b11111011
+        .base_high db 0
+
+                
+    
     gdt_end:
         times 10 nop
     keyboard_buffer:   
@@ -193,14 +254,13 @@ data:
         ecxx dd 0
         ebxx dd 0
         eaxx dd 0
-        db 13,10,0
+        db 0
     manfacstr db "CPU model is:",0
 end_of_data:
+commandasm:
+    %include "include/commands.asm"
+end_of_commandasm:
 
-strcmp:
-    .loop:
-        repe cmpsb
-        
 sasm:
     %include "include/syscall.asm"
 end_of_sasm:
