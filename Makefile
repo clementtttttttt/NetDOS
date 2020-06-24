@@ -11,5 +11,6 @@ out.img:UKERNEL.COM
 	dd if=boot16 of=out.img conv=notrunc
 	sudo mount out.img temp -o fat=16
 	sudo cp UKERNEL.COM temp/
+	sleep 0.6
 	sudo umount temp
 	

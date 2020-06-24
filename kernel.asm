@@ -9,14 +9,19 @@ clear_screen:
 
     mov si,init
     call print_string
-    cli
-
+reset_floppy:
+    mov ah,0
+    xor dl,dl
+    int 13h
 unreal_mode:
+    cli
     push ds
     lgdt[gdtinfo]
+    
     mov eax,cr0
     or al,1
     mov cr0,eax
+    
     use32
     jmp $+2
     mov bx,0x08
@@ -28,6 +33,25 @@ unreal_mode:
     sti
     mov si,unrealmodeok
     call print_string
+a20:
+    mov ax,2401h
+    int 15h
+pit_setup:
+    cli
+    mov ax,0
+    mov es,ax
+    mov word [es:8*4],irq0
+    mov word [es:8*4+2],50h
+    mov al,0x34
+    out 0x43,al
+    mov ax,0x2e9c
+    out 0x40,al
+    mov al,ah
+    out 0x40,al
+    mov al,0b10111101
+    out 21h,al
+    sti
+    
 setup_system_call:
 
     mov ax,0
@@ -36,6 +60,7 @@ setup_system_call:
     mov word [es:40h*4+2],0x50
     mov word [es:9h*4],irq1
     mov word [es:9h*4+2],50h
+
     sti
 
     mov si,syscallok
@@ -58,6 +83,7 @@ check_cpuid_exist:
     call print_string
     jmp read_fat
 OK:
+sti
 mov eax,80000002h
 getcpuinfo:
     push eax
@@ -100,30 +126,12 @@ read_fat:
     mov cl,1
     mov bx,fat+18*512
     int 13h
-clean_fat:
-    mov si,fat+2600h
-    .loop:
-        cmp byte [si],0xe5
-        jne .skip
-        .loop2:
-            push si
-            mov byte [si],0
-            inc si
-            pop ax
-            add ax,32
-            cmp si,ax
-            jg .return
-            jmp .loop2
-        .skip:
-        inc si
-        .return:
-        cmp si,fat+2600h+(224*32)
-        jg .loop
+    jc read_fat
+
 findinit:
     mov si,initprog
     mov di,fat+2600h
     call FindName
-load_ring3:
   
 
         
@@ -154,7 +162,8 @@ print_string:				; Output string in SI to screen
 
 
 internal_shell:
-
+    cld
+    sti
     mov si,intershell
     call print_string
      mov ah,4
@@ -173,10 +182,13 @@ internal_shell:
     .command:
         cmp byte [keyboard_buffer],0
         je .skip
+                cmp byte [keyboard_buffer],' '
+        je .space_handler
         cmp byte [keyboard_buffer],10
         je .execute_command
         cmp byte [keyboard_buffer],0x08
         jne .backskip
+
             cmp di,commandstr
             je .skip
             mov si,backspace
@@ -198,7 +210,7 @@ internal_shell:
     .execute_command:
         cmp byte [commandstr],0
         je .command_prep
-        mov cx,5
+        mov cx,4
         mov si,commandstr
         mov di,help
         rep cmpsb
@@ -208,6 +220,11 @@ internal_shell:
         mov cx,3
         rep cmpsb
         je lsc
+        mov si,commandstr
+        mov di,clear
+        mov cx,6
+        rep cmpsb
+        je clear_command
         jmp .command_not_found
         
     .command_not_found:
@@ -220,11 +237,29 @@ internal_shell:
         mov byte [di],0
         inc di
         jmp .clearcommandstr
+    .space_handler:
+        cmp di,commandstr
+        jne .spaceskip
+        mov byte [di],' '
+        mov al,' '
+        mov ah,0x0e
+        int 10h
+        inc di
+        jmp .skip
+        .spaceskip:
+        mov al,' '
+        mov ah,0x0e
+        int 10h
+        mov byte [di],0
+        inc di
+        jmp .skip
 return:
     mov di,commandstr
     ret
 
 data:
+    cpuflag db 0
+    rm db "rm",0
     ls db "ls",0
     clear db "clear",0
     helpstr db "ls=list directory",10,13,"program-name=execute program",10,13,0
@@ -236,7 +271,7 @@ data:
     lfcr db 10,13,0
     fatal_error db "KERNEL PANIC: INIT RETURNED (Which is not supposed to)",10,13,0
     command_not_found db 10,13,"Invalid command,view a list of commands by typing help (CASE SENSITIVE!!!)",10,13,0
-    intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt in the age of 13,with ",0
+    intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt at the age of 13,with ",0
     bps dw 512
     nof db 2
     rst dw 1

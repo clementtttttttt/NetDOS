@@ -24,8 +24,14 @@ inthandler:
         popa
         iret
     next4:
+        cmp ah,4
+        jne next5
         mov ax,KernelVER
         mov fs,ax
+        popa
+        iret
+    next5:
+        call read_fat2
         popa
         iret
 executable_loader:

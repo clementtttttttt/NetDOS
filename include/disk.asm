@@ -7,6 +7,23 @@
 ;; Output: SI = next cluster  ;;
 ;;         ES:BX -> next addr ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+read_fat2:
+    mov ah,0
+    mov dl,0
+    int 13h
+    pusha
+    .loop:
+   
+    mov ax,0x0204
+    mov dl,0
+    mov dh,1
+    mov ch,0
+    mov cl,2
+    mov bx,fat
+    int 13h
+    jc .loop
+    popa
+    ret
 
 ReadCluster:
         mov     bp, sp
