@@ -36,6 +36,10 @@ unreal_mode:
 a20:
     mov ax,2401h
     int 15h
+    push es
+    pop ds
+    mov di,fat
+call do_e820
 pit_setup:
     cli
     mov ax,0
@@ -258,6 +262,8 @@ return:
     ret
 
 data:
+    ram db "LOW RAM AREA SIZE(KB):",0
+    ramstr times 10 db 0
     cpuflag db 0
     rm db "rm",0
     ls db "ls",0
@@ -303,6 +309,7 @@ data:
         eaxx dd 0
         db 0
     manfacstr db "CPU model is:",0
+    dummy db fat
 end_of_data:
 commandasm:
     %include "include/commands.asm"
