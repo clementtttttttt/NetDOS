@@ -24,33 +24,6 @@ read_fat2:
     popa
     ret
 
-
-load_fat_data:
-    push ds
-    pop es
-    mov ah,0x02
-    mov al,5
-    mov dl,0
-    mov cl,13
-    mov ch,0
-    mov dh,1
-    mov bx,fat
-    int 13h
-    mov dl,0
-    mov cl,1
-    mov ch,1
-    mov dh,0
-    mov ax,0x0218
-    mov bx,fat+(5*512)
-    int 13h
-    mov dl,0
-    mov cl,10x
-    mov ch,1
-    mov dh,1
-    mov ax,0x0218
-    mov bx,fat+(18+5)*512
-    int 13h
-    ret
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Looks for a file/dir by its name      ;;
@@ -89,3 +62,81 @@ FindName:
 ddata:
     bpbHeadsPerCylinder dw 2
     a dw 18
+bpbSectorsPerCluster db 1
+bpbBytesPerSector dw 512
+bpbSectorsPerTrack dw 18
+bsDriveNumber db 0
+ReadNextCluster:
+
+
+;; Reads a sector using BIOS Int 13h fn 2 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Input:  DX:AX = LBA                    ;;
+;;         CX    = sector count           ;;
+;;         ES:BX -> buffer address        ;;
+;; Output: CF = 1 if error                ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ReadSector:
+        pusha
+
+ReadSectorNext:
+        mov     di, 5                   ; attempts to read
+
+ReadSectorRetry:
+        pusha
+
+        div     word [bpbSectorsPerTrack]
+                ; ax = LBA / SPT
+                ; dx = LBA % SPT         = sector - 1
+
+        mov     cx, dx
+        inc     cx
+                ; cx = sector no.
+
+        xor     dx, dx
+        div     word [bpbHeadsPerCylinder]
+                ; ax = (LBA / SPT) / HPC = cylinder
+                ; dx = (LBA / SPT) % HPC = head
+
+        mov     ch, al
+                ; ch = LSB 0...7 of cylinder no.
+        shl     ah, 6
+        or      cl, ah
+                ; cl = MSB 8...9 of cylinder no. + sector no.
+
+        mov     dh, dl
+                ; dh = head no.
+
+        mov     dl, [bsDriveNumber]
+                ; dl = drive no.
+
+        mov     ax, 201h
+                                        ; al = sector count = 1
+                                        ; ah = 2 = read function no.
+
+        int     13h                     ; read sectors
+        jnc     ReadSectorDone          ; CF = 0 if no error
+
+        xor     ah, ah                  ; ah = 0 = reset function
+        int     13h                     ; reset drive
+
+        popa
+        dec     di
+        jnz     ReadSectorRetry         ; extra attempt
+        stc
+        ret
+
+ReadSectorDone:
+        popa
+        dec     cx
+        jz      ReadSectorDone2         ; last sector
+
+        add     bx, [bpbBytesPerSector] ; adjust offset for next sector
+        add     ax, 1
+        adc     dx, 0                   ; adjust LBA for next sector
+        jmp     short ReadSectorNext
+
+ReadSectorDone2:
+        popa
+        ret

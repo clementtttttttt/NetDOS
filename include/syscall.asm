@@ -88,10 +88,16 @@ inthandler:
         popa 
         iret
     next7:
-        mov si,internal_shell.command_prep
-        mov fs,si
+        cmp ah,7
+        jne next8
         popa
+        pop ax
+        push internal_shell.eskip
         iret
+    next8:
+    popa
+    iret
+
 app_return:
         push internal_shell
         iret

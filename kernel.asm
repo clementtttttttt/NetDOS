@@ -1,3 +1,4 @@
+
 use16
 org 100h
 code:
@@ -140,9 +141,6 @@ findinit:
     mov si,initprog
     mov di,fat+2600h
     call FindName
-  
-
-        
     jc internal_shell
 load_init:
     stc
@@ -179,6 +177,8 @@ internal_shell:
     mov si,fs
     call print_string
     .command_prep:
+        
+        mov byte [kdata.shiftbit],0
         mov si,commandline
         call print_string
    
@@ -247,10 +247,7 @@ internal_shell:
         je .rmc
         jmp .execute_file
 .rmc:
-    mov ah,7
-    int 40h
-    push fs
-    retw
+    jmp internal_shell.command_prep
     .command_not_found:
         mov si,command_not_found
         call print_string 
@@ -270,7 +267,28 @@ internal_shell:
         jmp .skip
     .execute_file:
         sti
+        mov si,filename
+        .clear_filename:
+            mov byte [si],20h
+            inc si
+            cmp si,filename+11
+            jne .clear_filename
         call read_fat2
+        xor cx,cx
+        
+
+        mov si,commandstr
+        .getfilenamelength:
+            inc si
+            inc cx
+            cmp byte [si],20h
+            jne .getfilenamelength
+        inc cx
+        mov si,commandstr
+        mov di,filename
+        push ds
+        pop es
+        rep movsb
         xor cx,cx
         xor bx,bx
         jmp .enameloop
@@ -283,24 +301,23 @@ internal_shell:
             .loop2:
                 cmp byte [si],0
                 jne .loop2-1
-            mov si,commandstr
+            mov si,filename
             add si,8
             mov byte [si],'N'
             inc si
             mov byte [si],'D'
             inc si
             mov byte [si],'F'
-            mov si,commandstr
+            mov si,filename
         .enameloop:
-            push ds
-            pop es
             call read_fat2
 
             mov di,fat
-            mov si,commandstr
+            mov si,filename
             
             mov dx,224
             call FindName
+       
             mov [tempw],si
             mov [tempw2],fs
             jc .retryentry
@@ -316,33 +333,25 @@ internal_shell:
             call print_string
             mov si,loadingprogram
             call print_string
-            call load_fat_data
-            
-            mov dx,[tempw]
-            mov cx,512
-            mov ax,dx
-            .loopbreak:
-            pusha
-              
-                popa
-                add dx,ax
-                dec cx
-                cmp cx,1
-              
-                jne .loopbreak
-            mov si,fat
-            add si,dx
-            
-            push word 0x7e0
+            xor dx,dx
+            mov ax,[tempw]
+            add ax,31
+            push word 7e0h
             pop es
-            mov cx,[tempw2]
-            mov di,0
-            rep movsw
+            mov bx,0
+            mov cx,7
+            call ReadSector     
+        .execute:
             push ds
             mov ax,0x7e0
             mov ds,ax
             call 0x7e0:0
             pop ds
+            mov bx,0x7e00
+            .loop:
+                mov byte [bx],0
+                cmp byte [bx],0
+                jne .loop
             jmp internal_shell.command_prep
 
 return:
@@ -354,6 +363,7 @@ bootloaderonly:
     int 40h
     jmp internal_shell.command_prep
 data:
+    filename times 11 db 20h
     loadingprogram db 10,13,"Loading program...",10,13,0
     upgraderam db 10,13,"Upgrade your ram to 1.2mb in order to unlock executing programs.",10,13,0
     kernel db "UKERNEL COM",20h

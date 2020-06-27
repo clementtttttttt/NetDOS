@@ -11,6 +11,8 @@ irq1:
     in al,60h
     cmp al,0x01
     je break
+    cmp al,0x3b
+    je reset
     cmp al,0x2a
     je shift_handler
     cmp al,0x3a
@@ -48,8 +50,16 @@ break:
     pop ax
     push 50h
     push internal_shell
- 
+    mov bx,0x7e00
+  .loop:
+                mov byte [bx],0
+                cmp byte [bx],0
+                jne .loop
+    mov ah,3
+    int 40h
     iret
+reset:
+    jmp 0xffff:0000
 shift:
     mov bx,kdata.lookup_table_shift
     jmp shiftreturnpoint
@@ -60,27 +70,17 @@ shift_handler:
     jmp skip
     
 illegalinstruct:
-    pop bx
-    push ax
+
+    
     pusha
-     mov ax,50h
-    mov ds,ax
-    xor eax,eax
-    mov ax,[bx]
-    call convert
+  
     mov si,kdata.illegalins
     call print_string
-    mov si,ramstr
-    call print_string
+
     mov si,lfcr
     call print_string
     popa
     pop ax
-    pop ax
-    push ax
-   
-    pop ax
-    push 50h
     push internal_shell.command_prep
     iret
 convert:
@@ -107,7 +107,7 @@ next_digit:
     ret
 kdata:
     .break db 10,13,"BREAK",13,10,0
-    .illegalins db 10,13,"Illegal instruction(INT 6),junk opcode is:",0
+    .illegalins db 10,13,"Illegal instruction(INT 6)",0
     .ctrlbit db 0
     .shiftbit db 0
     .temp db 0

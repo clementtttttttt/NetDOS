@@ -11,6 +11,7 @@ clear_command:
     jmp internal_shell.command_prep
 
 lsc:
+    call .clear_ramstr
     call read_fat2
     mov si,lfcr
     call print_string
@@ -88,6 +89,7 @@ lsc:
         int 10h
         pop ax
         .display_size:
+            
             push si
             mov eax,[si+0x1c]
             call convert
