@@ -43,7 +43,9 @@ break:
     mov ax,50h
     mov es,ax
     mov ds,ax
-    popa
+    mov fs,ax
+    mov gs,ax
+   popa
     mov si,kdata.break
     call print_string
     pop ax
@@ -80,7 +82,14 @@ illegalinstruct:
     mov si,lfcr
     call print_string
     popa
+    mov ax,50h
+    mov ds,ax
+    mov es,ax
+    mov fs,ax
+    mov gs,ax
     pop ax
+    pop ax
+    push 50h
     push internal_shell.command_prep
     iret
 convert:

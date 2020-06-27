@@ -114,6 +114,17 @@ lsc:
             cmp si,ramstr+10
             jne .loop_cr
         ret
+
+
+rmc:
+    call read_fat2
+    mov si,commandstr+3
+    mov di,fat
+    mov cx,7
+    .loop:
+
+        
+    jmp internal_shell.command_prep
 printstring_thatendafter8chars:
     pusha
     mov cx,0

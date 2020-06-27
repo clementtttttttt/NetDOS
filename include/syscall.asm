@@ -95,14 +95,53 @@ inthandler:
         push internal_shell.eskip
         iret
     next8:
-    popa
-    iret
+        cmp ah,8
+        jne next9
+        popa 
+        jmp RelocateEXE
+    next9:
+        popa
+        mov fs,[keyboard_buffer]
+        iret
 
 app_return:
         push internal_shell
         iret
 
-    
+RelocateEXE:
+
+        add     ax, [08h]               ; ax = image base
+        mov     cx, [06h]               ; cx = reloc items
+        mov     bx, [18h]               ; bx = reloc table pointer
+
+        jcxz    RelocationDone
+
+ReloCycle:
+        mov     di, [bx]                ; di = item ofs
+        mov     dx, [bx+2]              ; dx = item seg (rel)
+        add     dx, ax                  ; dx = item seg (abs)
+
+        push    ds
+        mov     ds, dx                  ; ds = dx
+        add     [di], ax                ; fixup
+        pop     ds
+
+        add     bx, 4                   ; point to next entry
+        loop    ReloCycle
+
+RelocationDone:
+
+        mov     bx, ax
+        add     bx, [0Eh]
+        mov     ss, bx                  ; ss for EXE
+        mov     sp, [10h]               ; sp for EXE
+
+        add     ax, [16h]               ; cs
+        pop fs
+        pop fs
+        push    ax
+        push    word [14h]              ; ip
+        iret
     
 syscall_data:
 

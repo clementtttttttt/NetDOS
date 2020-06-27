@@ -4,44 +4,58 @@ org 100h
 code:
 
 jmp clear_screen
+   gdtinfo:
+            dw gdt_end - gdt - 1   ;last byte in table
+            dd gdt+500h                 ;start of table
+ 
+    gdt         dd 0,0        ; entry 0 is always unused
+    fdata db 0xff,0xff,0,0,0,10010010b,11001111b,0
+    flatcode    db 0xff, 0xff, 0 
+    .base db 00,0h
+    .bitfileld db 10011010b, 10001111b, 0
+    gdt_end:
 clear_screen:
     mov ax,0x3
     int 0x10
     
     mov si,init
     call print_string
-setup_stack:
-    mov ax,0x7f0
-    mov ss,ax
-    mov sp,0
+    jmp reset_floppy
+
 reset_floppy:
     mov ah,0
     xor dl,dl
     int 13h
-unreal_mode:
+
+unreal:
     cli
-    push ds
-    lgdt[gdtinfo]
-    
+    lgdt [gdtinfo]
+
     mov eax,cr0
     or al,1
     mov cr0,eax
-    pmode:
-    use32
-    jmp $+2
-    mov bx,0x08
+    jmp 0x10:pmode+500h
+pmode:
+    mov bx,8h
     mov ds,bx
+    mov es,bx
+    mov fs,bx
+    mov gs,bx
     and al,0xfe
     mov cr0,eax
-    real:
-    
-    use16
+    jmp 50h:realm
+    realm:
+    push word 50h
     pop ds
     sti
     mov si,unrealmodeok
     call print_string
 a20:
     call enable_A20
+setup_stack:
+    mov ax,0
+    mov ss,ax
+    mov esp,0x100000
 pit_setup:
     cli
     mov ax,0
@@ -218,18 +232,19 @@ internal_shell:
     .execute_command:
         push ds
         pop es
-        cmp byte [commandstr],0
+        cmp byte [commandstr],20h
         je .command_prep
+            mov si,commandstr
+        mov di,ls
+        mov cx,3
+        rep cmpsb
+        je lsc
         mov cx,4
         mov si,commandstr
         mov di,help
         rep cmpsb
         je hhelp
-        mov si,commandstr
-        mov di,ls
-        mov cx,3
-        rep cmpsb
-        je lsc
+    
         mov si,commandstr
         mov di,clear
         mov cx,6
@@ -244,10 +259,8 @@ internal_shell:
         mov di,rm
         mov cx,3
         rep cmpsb
-        je .rmc
+        je rmc
         jmp .execute_file
-.rmc:
-    jmp internal_shell.command_prep
     .command_not_found:
         mov si,command_not_found
         call print_string 
@@ -333,6 +346,7 @@ internal_shell:
             call print_string
             mov si,loadingprogram
             call print_string
+
             xor dx,dx
             mov ax,[tempw]
             add ax,31
@@ -342,6 +356,11 @@ internal_shell:
             mov cx,7
             call ReadSector     
         .execute:
+            cmp word [es:bx],"MZ"
+            jne .relocateskip
+            mov ah,8
+            int 40h
+            .relocateskip:
             push ds
             mov ax,0x7e0
             mov ds,ax
@@ -363,6 +382,10 @@ bootloaderonly:
     int 40h
     jmp internal_shell.command_prep
 data:
+       rm db "rm",20h
+    ls db "ls",20h
+    clear db "clear",20h
+    fmf db 10,13,"File not found",10,13,0
     filename times 11 db 20h
     loadingprogram db 10,13,"Loading program...",10,13,0
     upgraderam db 10,13,"Upgrade your ram to 1.2mb in order to unlock executing programs.",10,13,0
@@ -372,9 +395,7 @@ data:
     tempw dw 0
     ramstr times 10 db 0
     cpuflag db 0
-    rm db "rm",20h
-    ls db "ls",20h
-    clear db "clear",20h
+ 
     helpstr db "ls=list directory",10,13,"program-name=execute program",10,13,0
     cpuidunsupportedstr db "CPU IS BEFORE i486-DX2,CONSIDER BUYING A NEW COMPUTER",10,13,0
     help db "help",20h
@@ -395,14 +416,7 @@ data:
     unrealmodeok db "Unreal Mode Initialized.",10,13,0
     syscallok db "System call and IRQ1 is initialized.",10,13,0
     commandline db 10,13,"A:/$ ",0
-    gdtinfo:
-            dw gdt_end - gdt - 1   ;last byte in table
-            dd gdt                 ;start of table
  
-    gdt         dd 0,0        ; entry 0 is always unused
-    flatdesc    db 0xff, 0xff, 0, 0, 0, 10010010b, 11001111b, 0
- 
-    gdt_end:
         times 10 nop
     keyboard_buffer:   
         db 0
@@ -438,3 +452,4 @@ nop
 fat:
     times 8 db 3
     
+ 
