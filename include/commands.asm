@@ -8,6 +8,8 @@ hhelp:
 clear_command:
     mov ah,3
     int 40h
+    call changevidmode
+
     jmp internal_shell.command_prep
 
 lsc:

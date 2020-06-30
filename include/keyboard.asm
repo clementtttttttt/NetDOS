@@ -57,8 +57,8 @@ break:
                 mov byte [bx],0
                 cmp byte [bx],0
                 jne .loop
-    mov ah,3
-    int 40h
+    call changevidmode
+  
     iret
 reset:
     jmp 0xffff:0000

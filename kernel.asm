@@ -15,12 +15,10 @@ jmp clear_screen
     .bitfileld db 10011010b, 10001111b, 0
     gdt_end:
 clear_screen:
-    mov ax,0x3
-    int 0x10
-    
+  
+    call changevidmode
     mov si,init
     call print_string
-    jmp reset_floppy
 
 reset_floppy:
     mov ah,0
@@ -48,14 +46,16 @@ pmode:
     push word 50h
     pop ds
     sti
+setup_stack:
+    mov ax,0x7f0
+    mov ss,ax
+    mov esp,0x0
+
     mov si,unrealmodeok
     call print_string
 a20:
     call enable_A20
-setup_stack:
-    mov ax,0
-    mov ss,ax
-    mov esp,0x100000
+
 pit_setup:
     cli
     mov ax,0
