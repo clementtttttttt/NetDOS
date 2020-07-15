@@ -215,9 +215,9 @@ internal_shell:
             je .skip
             mov si,backspace
             call print_string
-            mov byte [di],0
+            mov byte [di],20h
             dec di
-            mov byte [di],0
+            mov byte [di],20h
             jmp .skip
         .backskip:
         mov al,[keyboard_buffer]
