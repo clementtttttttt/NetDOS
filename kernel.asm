@@ -47,9 +47,9 @@ pmode:
     pop ds
     sti
 setup_stack:
-    mov ax,0x7f0
+    mov ax,0
     mov ss,ax
-    mov esp,0x0
+    mov esp,0x7e00
 
     mov si,unrealmodeok
     call print_string
@@ -398,9 +398,12 @@ data:
     currentaddr dw 0
     temp dd 0
     lfcr db 10,13,0
-    fatal_error db "KERNEL PANIC: INIT RETURNED (Which is not supposed to)",10,13,0
+    db 0
     command_not_found db 10,13,"Invalid command,view a list of commands by typing help (CASE SENSITIVE!!!)",10,13,0
     intershell db "NetDOS NDSH version 1.0",10,13,"Written by clementtttttttt at the age of 13,with ",0
+    db 9
+        fatal_error db "KERNEL PANIC: INIT RETURNED (Which is not supposed to)",10,13,0
+
     bps dw 512
     nof db 2
     rst dw 1
