@@ -291,12 +291,7 @@ internal_shell:
         
 
         mov si,commandstr
-        .getfilenamelength:
-            inc si
-            inc cx
-            cmp byte [si],20h
-            jne .getfilenamelength
-        inc cx
+        mov cx,12
         mov si,commandstr
         mov di,filename
         push ds
@@ -386,7 +381,7 @@ data:
     ls db "ls",20h
     clear db "clear",20h
     fmf db 10,13,"File not found",10,13,0
-    filename times 11 db 20h
+    filename times 12 db 20h
     loadingprogram db 10,13,"Loading program...",10,13,0
     upgraderam db 10,13,"Upgrade your ram to 1.2mb in order to unlock executing programs.",10,13,0
     kernel db "UKERNEL COM",20h
